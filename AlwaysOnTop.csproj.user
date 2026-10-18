@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PublishUrlHistory>publish\</PublishUrlHistory>
+    <InstallUrlHistory />
+    <SupportUrlHistory />
+    <UpdateUrlHistory />
+    <BootstrapperUrlHistory />
+    <ErrorReportUrlHistory />
+    <FallbackCulture>en-US</FallbackCulture>
+    <VerifyUploadedFiles>false</VerifyUploadedFiles>
+    <_LastSelectedProfileId>E:\AI\工作空间\编程\AlwaysOnTop\AlwaysOnTop程序代码\Properties\PublishProfiles\FolderProfile.pubxml</_LastSelectedProfileId>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Update="Classes\FormAbout.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Classes\FormHelp.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Classes\FormSetHotkey.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Classes\FormSettings.cs">
+      <SubType>Form</SubType>
+    </Compile>
+  </ItemGroup>
+</Project>

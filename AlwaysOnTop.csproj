@@ -1,0 +1,67 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    工程格式说明（0.8.0 起）：
+    原工程是 VS 专用的旧式 csproj，编译时必须检测到
+    「.NET Framework 4.8 Developer Pack（引用程序集 / Targeting Pack）」才能工作。
+    很多机器只装了 .NET Framework 4.8 运行时（Windows 11 自带），装了也一样报
+    "The reference assemblies for .NETFramework,Version=v4.8 were not found"。
+
+    现在改为 SDK 风格工程 + 微软官方引用程序集 NuGet 包：
+      · 不需要安装 Visual Studio，也不需要 Developer Pack；
+      · dotnet build / VS Code 的 C# 扩展 / VS 2022 都能直接编译；
+      · 只装运行时（Windows 11 自带的 4.8）的机器也能编译。
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+
+    <RootNamespace>AlwaysOnTop</RootNamespace>
+    <AssemblyName>AlwaysOnTop</AssemblyName>
+
+    <!-- 沿用 C# 7.3：不需要任何额外的编译器包，最大兼容性 -->
+    <LangVersion>7.3</LangVersion>
+
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <Deterministic>true</Deterministic>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+
+    <!-- 版本信息仍由 Properties\AssemblyInfo.cs 提供，避免与 SDK 自动生成重复 -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>false</Optimize>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>pdbonly</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>true</Optimize>
+    <DefineConstants>TRACE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 关键：提供 .NET Framework 4.8 的引用程序集，替代 Developer Pack -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- UseWindowsForms 已自动引入 System.Windows.Forms / System.Drawing / System 等 -->
+    <Reference Include="System.Configuration" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 托盘图标以嵌入资源方式读取：AlwaysOnTop.icon.ico -->
+    <EmbeddedResource Include="icon.ico" />
+  </ItemGroup>
+
+</Project>
