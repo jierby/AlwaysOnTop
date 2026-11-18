@@ -30,6 +30,7 @@ namespace AlwaysOnTop.Classes
         private Rectangle appliedBounds = Rectangle.Empty;
         private int appliedThickness = -1;
         private bool shown;
+        private long lastDiagTick;
 
         internal BorderOverlay(IntPtr target)
         {
@@ -97,8 +98,11 @@ namespace AlwaysOnTop.Classes
 
                 // 位置尺寸交给 WinForms 同步，否则 form.Bounds 与实际窗口不一致，
                 // 之后 Show() 会把窗口弹回旧位置再被下一帧拉回来，出现闪烁。
+                // BorderForm.SetBoundsCore 会在其后用原生 API 再按物理像素校正一次。
                 form.Bounds = outer;
                 ApplyRingRegion(outer.Width, outer.Height, thickness);
+
+                WriteDiag(visible, outer, thickness);
             }
 
             if (!shown)
@@ -129,6 +133,46 @@ namespace AlwaysOnTop.Classes
             int dpi = WindowTools.GetDpi(target);
             int value = (int)Math.Round(BaseThickness * dpi / 96.0);
             return value < 1 ? 1 : value;
+        }
+
+        /// <summary>
+        /// 多显示器 / 不同缩放比例下的坐标诊断。
+        /// 描边错位时，这份日志能直接看出是「取到的窗口矩形」错了还是「设置的位置」被改写了：
+        /// 目标窗口的 GetWindowRect 与 DWM 可见边界、我们设置的矩形、描边窗口的实际矩形，
+        /// 四个数值一比就知道哪一步发生偏移。同一条描边 500ms 内只记一次，避免拖窗口时刷爆日志。
+        /// </summary>
+        private void WriteDiag(Rectangle visible, Rectangle outer, int thickness)
+        {
+            long now = Environment.TickCount;
+            if (now - lastDiagTick < 500) return;
+            lastDiagTick = now;
+
+            try
+            {
+                Native.RECT targetRect;
+                Native.GetWindowRect(target, out targetRect);
+
+                Native.RECT formRect = new Native.RECT();
+                int formDpi = 0;
+                if (form != null && !form.IsDisposed && form.IsHandleCreated)
+                {
+                    Native.GetWindowRect(form.Handle, out formRect);
+                    formDpi = WindowTools.GetDpi(form.Handle);
+                }
+
+                Program.WriteDiagnostic(string.Format(
+                    "[描边] 目标=0x{0:X} 目标DPI={1} 目标GetWindowRect=({2},{3}) {4}x{5} DWM可见=({6},{7}) {8}x{9} 设定=({10},{11}) {12}x{13} 描边实际=({14},{15}) {16}x{17} 描边DPI={18} 厚度={19}",
+                    target.ToInt64(), WindowTools.GetDpi(target),
+                    targetRect.Left, targetRect.Top, targetRect.Width, targetRect.Height,
+                    visible.Left, visible.Top, visible.Width, visible.Height,
+                    outer.Left, outer.Top, outer.Width, outer.Height,
+                    formRect.Left, formRect.Top, formRect.Width, formRect.Height,
+                    formDpi, thickness));
+            }
+            catch (Exception ex)
+            {
+                Program.WriteLog(ex);
+            }
         }
 
         private void EnsureForm()
@@ -202,6 +246,11 @@ namespace AlwaysOnTop.Classes
                 Text = string.Empty;
                 DoubleBuffered = true;
                 SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
+
+                // 关键：禁止 WinForms 做任何自动缩放。
+                // 描边窗口的尺寸只有一个来源——目标窗口的物理像素矩形，
+                // 一旦让 AutoScale 插手，跨屏（100% ↔ 150%）时尺寸就会被改掉。
+                AutoScaleMode = AutoScaleMode.None;
             }
 
             protected override bool ShowWithoutActivation
@@ -217,6 +266,47 @@ namespace AlwaysOnTop.Classes
                     cp.ExStyle |= Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE | Native.WS_EX_TOPMOST;
                     return cp;
                 }
+            }
+
+            /// <summary>
+            /// 位置与尺寸一律按物理像素设置。
+            /// Per-Monitor V2 下 WinForms 传来的就是物理像素，这里再显式调一次 SetWindowPos，
+            /// 目的是防止描边窗口跨到另一块 DPI 不同的显示器时，系统按「建议矩形」把它改大小。
+            /// </summary>
+            protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified)
+            {
+                base.SetBoundsCore(x, y, width, height, specified);
+
+                // 用 IsHandleCreated 而不是 Handle：后者会顺带创建窗口句柄，
+                // 在窗体尚未初始化完成时提前建窗口会打乱 WinForms 的初始化顺序。
+                if (IsHandleCreated)
+                {
+                    Native.SetWindowPos(Handle, IntPtr.Zero, x, y, width, height,
+                        Native.SWP_NOZORDER | Native.SWP_NOACTIVATE | Native.SWP_NOOWNERZORDER);
+                }
+            }
+
+            /// <summary>
+            /// 吞掉 DPI 变化的默认处理。
+            /// base 实现会按系统建议的矩形重新设置窗口大小并缩放子控件；
+            /// 对描边窗口来说这等于「自己改自己的尺寸」，会立刻与目标窗口错位。
+            /// 正确尺寸由 Sync() 按目标窗口重新计算，这里什么都不做。
+            /// </summary>
+            protected override void OnDpiChanged(DpiChangedEventArgs e)
+            {
+            }
+
+            protected override void OnDpiChangedBeforeParent(EventArgs e)
+            {
+            }
+
+            protected override void OnDpiChangedAfterParent(EventArgs e)
+            {
+            }
+
+            /// <summary>任何自动缩放都直接忽略。</summary>
+            protected override void ScaleControl(SizeF factor, BoundsSpecified specified)
+            {
             }
 
             protected override void WndProc(ref Message m)

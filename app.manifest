@@ -26,8 +26,18 @@
 
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
-      <!-- 开启 DPI 感知：否则 125% / 150% 缩放下界面会被拉伸发虚 -->
-      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true</dpiAware>
+      <!--
+        DPI 感知级别：必须是 Per-Monitor V2。
+        原因：早期用的是 <dpiAware>true</dpiAware>（System DPI Aware），进程只按主显示器
+        DPI 缩放。多显示器且两块屏缩放比例不同时，副屏上的坐标会被 Windows 做 DPI 虚拟化，
+        导致 DwmGetWindowAttribute 拿到的窗口边界（逻辑像素）与 SetWindowPos/SetWindowRgn
+        使用的基准不一致，置顶描边会整体偏移几十到上百像素。
+        改成 PerMonitorV2 后，GetWindowRect / DwmGetWindowAttribute / SetWindowPos /
+        SetWindowRgn 全程统一为物理像素，跨屏不同缩放也能精确贴合。
+        true/pm 是 Win8.1 的写法，Win7 会忽略；PerMonitorV2 由 Win10 1607+ 优先采用。
+      -->
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>
       <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
     </windowsSettings>
   </application>
